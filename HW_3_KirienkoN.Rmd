@@ -1,0 +1,185 @@
+---
+title: "Homework 3"
+author: "Kirienko Nadezhda"
+date: "2024-03-21"
+output: html_document
+---
+
+# Устанавливаю и загружаю необходимые библиотеки.
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	include = FALSE
+)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(lme4)
+library(stats)
+```
+#Устанавливаю дополнительно - пакет и библиотеку для чтения файла xlsx
+```{r}
+install.packages("readxl")
+library(readxl)
+```
+# Загружаю исходный датасет
+
+```{r}
+pima <- read_excel("C:/Data/pima.xlsx")
+head(pima)
+```
+## Задача  1 . Рассчитайте описательные статистики для переменных `glucose`, `pressure`, `mass`
+ПРедварительно удалим пропуски в строках, для расчета статистик использую функцию summarise(), с использованием пройденных функций пакета dplyr - рассчитываю описательные статистики для заданных переменных:
+```{r}
+pima <- na.omit(pima).
+pima %>%
+  summarise( 
+    Count_Glucose = n(), 
+    Mean_Glucose = mean(glucose, na.rm = TRUE), 
+    SD_Glucose = sd(glucose, na.rm = TRUE), 
+    Q1_Glucose = quantile(glucose, 0.25, na.rm = TRUE), 
+    Q3_Glucose = quantile(glucose, 0.75, na.rm = TRUE), 
+    Min_Glucose = min(glucose, na.rm = TRUE),  
+    Max_Glucose = max(glucose, na.rm = TRUE),  
+    
+    Count_Pressure = n(), 
+    Mean_Pressure = mean(pressure, na.rm = TRUE), 
+    SD_Pressure = sd(pressure, na.rm = TRUE), 
+    Q1_Pressure = quantile(pressure, 0.25, na.rm = TRUE),
+    Q3_Pressure = quantile(pressure, 0.75, na.rm = TRUE), 
+    Min_Pressure = min(pressure, na.rm = TRUE),
+    Max_Pressure = max(pressure, na.rm = TRUE), 
+    
+    Count_Mass = n(), 
+    Mean_Mass = mean(mass, na.rm = TRUE), 
+    SD_Mass = sd(mass, na.rm = TRUE), 
+    Q1_Mass = quantile(mass, 0.25, na.rm = TRUE), 
+    Q3_Mass = quantile(mass, 0.75, na.rm = TRUE), 
+    Min_Mass = min(mass, na.rm = TRUE), 
+    Max_Mass = max(mass, na.rm = TRUE) 
+  )
+
+```
+## Задача 2.  Рассчитайте описательную статистику для переменной `diabetes`. Создайте на основе переменной `age` новую переменную `age_group`, которая будет отражать следующие возрастные группы: 21–35, 36–49 и 50+. Посчитайте описательную статистику для новой переменной.
+- переменная `diabetes` - "chr". для дальнейших действий преобразую ее в factor:
+```{r, include=TRUE}
+pima <- pima %>%
+  mutate(diabetes = as.factor(diabetes))
+```
+- провожу абсолютный и относительный частотный анализ, а также процентное распределение
+- вывожу на просмотр
+```{r, include=TRUE}
+
+diabetes_stats <- pima %>%
+  group_by(diabetes) %>%
+  summarise(
+    Absolute_Frequency = n(), 
+    Relative_Frequency = n() / nrow(pima) 
+  ) %>%
+  mutate(
+    Percentage = Relative_Frequency * 100 
+  )
+
+print(diabetes_stats)
+```
+- создаю новыю переменную `age_group`
+- для присвоения каждому значению - определенную возрастную группу использую функцию mutate() с case_when()
+- в случае если значение возраста отличное от включенных в группу - присваиваем NA
+
+- далее производим расчет описатальной статистики для аеременной age_group
+```{r, include=TRUE}
+pima <- pima %>%
+  mutate(age_group = case_when( 
+    age >= 21 & age <= 35 ~ "21–35", 
+    age >= 36 & age <= 49 ~ "36–49", 
+    age >= 50 ~ "50+", 
+    TRUE ~ NA_character_
+  ))
+
+pima %>%
+  count(age_group) %>% 
+  mutate(Frequency_Percentage = n / sum(n) * 100)
+
+```
+## Задача 3. Определите 90% доверительный интервал для переменной `pedigree`.
+
+-для вычисления доверительного интервала использую функцию t.test() (без указания второй группы) с уровнем довереия 90%
+```{r, include=TRUE}
+t_test_result <- t.test(pima$pedigree, conf.level = 0.90) 
+t_test_result$conf.int
+
+```
+Вывод:  вероятность, что истинное среднее значение переменной `pedigree` в генеральной совокупности лежит в диапазоне от 0.4521870 до 0.4915656 составляет 90%
+
+
+## Задача 4. Постройте график плотности вероятности для переменной `glucose` и отметьте на нем среднее значение. Для той же переменной постройте гистограмму. Постройте два ящика с усами для значений `pos` и `neg` соответственно переменной `diabetes`.
+
+- Строю график плотности для `glucose`
+- Добавляю слой плотности 
+- добавляю зрендее значение уровня глюкозы (вертикальная линия)
+- формулирую названия графика и осей.
+```{r, include=TRUE}
+ggplot(pima, aes(x = glucose)) +
+    geom_density(aes(fill = diabetes), alpha = 0.5) +
+    geom_vline(aes(xintercept = mean(glucose, na.rm = TRUE)), color = "red", linetype = "dashed") +
+    labs(title = "График плотности для уровня глюкозы", x = "Уровень глюкозы", y = "Плотность")
+
+```
+- строю гистограмму для уровня `glucose`
+- добавляю слой с цветом и заданной шириной столбцов
+- формулирую названия графика и осей.
+```{r}
+ggplot(pima, aes(x = glucose)) +
+   geom_histogram(binwidth = 10, fill = "skyblue", color = "black") +
+   labs(title = "Гистограмма уровня глюкозы", x = "Уровень глюкозы", y = "Частота")
+```
+- создаю боксплоты для уровня глюкозы(с криерием - наличия или отсутствия диабета)
+- формулирую названия графика и осей.
+```{r}
+ggplot(pima, aes(x = diabetes, y = glucose, fill = diabetes)) +
+  geom_boxplot() +
+  labs(title = "Ящики с усами для уровня глюкозы по наличию диабета", x = "Диабет", y = "Уровень глюкозы")
+```
+## Задание 5. Постройте на одном графике две диаграммы рассеяния для наличия или отсутствия диабета. По оси X представьте значения обхвата трицепса, а по оси Y — массу тела. Выполните окрашивание, заливку и группирование по переменной `diabetes`.
+
+- Строю диаграмму рассеяния для обхвата трицепса и массы тела по переменной `diabetes`
+- формулирую названия графика и осей.
+```{r}
+ggplot(pima, aes(x = triceps, y = mass, color = diabetes)) +
+  geom_point() +
+  facet_grid(. ~ diabetes) +
+  labs(title = "Взаимосвязь между обхватом трицепса и массой тела",
+       x = "Обхват трицепса", y = "Масса тела") +
+  theme_minimal()
+```
+
+Анализирую полученную диаграмму рассеяния  - большое количество нереальных значений (особенно обхвата трицепса)
+- для оптимизации  - определяю границы (с прицелом ислючаю 0 и 100) - с использованием квантилей
+- далее провожу фильтрацию для исключения выбросов и пропусков
+```{r}
+triceps_limits <- quantile(pima$triceps, probs = c(0.01, 0.99), na.rm = TRUE)
+mass_limits <- quantile(pima$mass, probs = c(0.01, 0.99), na.rm = TRUE)
+
+pima_clean <- pima %>%
+  filter(
+    triceps > triceps_limits[1] & triceps < triceps_limits[2], 
+    mass > mass_limits[1] & mass < mass_limits[2], 
+    !is.na(triceps), 
+    !is.na(mass)
+  )
+
+```
+- повторно строю диаграмму рассеяния для обхвата трицепса и массы тела по переменной `diabetes` после проведенных преобразований
+```{r}
+ggplot(data = pima_clean,
+                aes(x = triceps, y = mass)) +
+  geom_point(color = "black", shape = 21, size = 4,
+             aes(fill = factor(pima_clean$diabetes))) +
+  scale_fill_manual(values = c("pink", "lightgreen")) +
+  facet_grid(. ~ diabetes) +
+  labs(title = "Взаимосвязь между обхватом трицепса и массой тела",
+       x = "Обхват трицепса", y = "Масса тела") +
+  theme_minimal()
+```
+
